@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#243044" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="暑假白板" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+  <title>暑假周任务拖拽白板</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #243044;
+      --muted: #687386;
+      --line: #d9e0ea;
+      --paper: #fffdf7;
+      --panel: #ffffff;
+      --navy: #243044;
+      --shadow: 0 18px 38px rgba(36, 48, 68, .12);
+      --r: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(36,48,68,.035) 1px, transparent 1px) 0 0/36px 36px,
+        linear-gradient(rgba(36,48,68,.035) 1px, transparent 1px) 0 0/36px 36px,
+        var(--paper);
+      overflow: hidden;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button {
+      border: 0;
+      background: none;
+      color: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: max(14px, env(safe-area-inset-top)) 18px 12px;
+      border-bottom: 4px solid var(--ink);
+      background: rgba(255,253,247,.92);
+      backdrop-filter: blur(16px);
+      z-index: 20;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 40px);
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+    .title p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: clamp(13px, 1.4vw, 17px);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .child-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: #fff;
+    }
+    .tab {
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 900;
+      color: #617085;
+    }
+    .tab.active {
+      background: var(--ink);
+      color: #fff;
+    }
+    .tool-btn {
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      padding: 9px 12px;
+      background: #fff;
+      font-weight: 900;
+      box-shadow: 4px 4px 0 rgba(36,48,68,.12);
+    }
+    .tool-btn.primary {
+      background: #ffeaa8;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(680px, 1fr) 390px;
+      gap: 16px;
+      padding: 16px 18px 18px;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: rgba(255,255,255,.88);
+      border: 3px solid var(--ink);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-height: 0;
+    }
+    .panel-head {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 18px;
+      background: var(--navy);
+      color: #fff;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+    .panel-head small {
+      opacity: .75;
+      font-weight: 650;
+      font-size: 12px;
+    }
+
+    .board-panel {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .week-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px 0;
+    }
+    .week-meta input {
+      height: 38px;
+      border: 2px solid #c6cedb;
+      border-radius: 12px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 800;
+      min-width: 0;
+    }
+    .week-meta .hint {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .quick-palette {
+      margin: 12px 14px 0;
+      border: 2px solid #c7d2e2;
+      border-radius: 16px;
+      background: #fff;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      min-height: 76px;
+      overflow: hidden;
+    }
+    .quick-palette-title {
+      align-self: stretch;
+      display: grid;
+      place-items: center;
+      padding: 0 14px;
+      background: #eef6ff;
+      color: var(--ink);
+      font-weight: 950;
+      border-right: 1px solid #dbe3ef;
+      white-space: nowrap;
+    }
+    .quick-palette-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .board-wrap {
+      min-height: 0;
+      padding: 14px;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .board {
+      min-width: 1050px;
+      height: 100%;
+      min-height: 690px;
+      display: grid;
+      grid-template-columns: 104px repeat(7, minmax(126px, 1fr));
+      grid-template-rows: 56px repeat(3, minmax(190px, 1fr));
+      gap: 2px;
+      background: var(--line);
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .day-head, .time-head, .corner, .cell {
+      background: #fff;
+    }
+    .corner, .day-head {
+      display: grid;
+      place-items: center;
+      background: #edf6ff;
+      font-size: 20px;
+      font-weight: 950;
+    }
+    .time-head {
+      display: grid;
+      place-items: center;
+      background: #fff0b7;
+      font-size: 22px;
+      font-weight: 950;
+    }
+    .cell {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 8px;
+      padding: 12px;
+      position: relative;
+      min-width: 0;
+    }
+    .fixed-field {
+      height: 36px;
+      border: 2px solid #efc948;
+      background: #fffbdf;
+      border-radius: 10px;
+      padding: 0 8px;
+      font-size: 14px;
+      font-weight: 850;
+      color: #594800;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fixed-field span {
+      color: #9a8d6a;
+      flex: none;
+    }
+    .fixed-field input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      width: 100%;
+      min-width: 0;
+      color: #594800;
+      font-weight: 900;
+    }
+    .drop-label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+    .dropzone {
+      border: 2px dashed #b4becc;
+      border-radius: 12px;
+      padding: 8px;
+      min-height: 86px;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 7px;
+      background: #fbfcfe;
+      transition: .16s ease;
+    }
+    .dropzone.selected {
+      outline: 4px solid rgba(84, 133, 255, .25);
+      border-color: #5485ff;
+      background: #f4f8ff;
+    }
+    .dropzone.drag-over {
+      border-color: #15945b;
+      background: #f2fff8;
+    }
+    .free-field {
+      min-height: 32px;
+      border: 2px solid #c8d1df;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 5px 8px;
+      color: #687386;
+      font-size: 13px;
+      font-weight: 850;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .free-field input {
+      border: 0;
+      outline: 0;
+      background: transparent;
+      width: 100%;
+      min-width: 0;
+      color: #536070;
+      font-weight: 800;
+    }
+
+    .sticker {
+      --bg: #e8f2ff;
+      --fg: #3b6da8;
+      display: inline-grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 6px;
+      min-width: 76px;
+      height: 42px;
+      padding: 5px 8px 5px 6px;
+      border: 2px solid var(--fg);
+      border-radius: 13px;
+      background: var(--bg);
+      box-shadow: 3px 3px 0 rgba(36,48,68,.12);
+      color: var(--ink);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+    .sticker:active { cursor: grabbing; }
+    .sticker .ico {
+      width: 28px;
+      height: 28px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.8);
+      color: var(--fg);
+    }
+    .sticker .ico svg,
+    .task-icon svg {
+      width: 20px;
+      height: 20px;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .sticker .txt {
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+    .sticker .num {
+      min-width: 24px;
+      height: 24px;
+      border: 2px solid var(--fg);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 950;
+    }
+    .sticker.done {
+      filter: saturate(.65);
+      opacity: .72;
+    }
+    .sticker.done::after {
+      content: "✓";
+      position: absolute;
+      transform: translate(52px, -18px);
+      color: #0a8a4a;
+      font-size: 26px;
+      font-weight: 950;
+    }
+    .sticker.ghost {
+      position: fixed;
+      z-index: 2000;
+      pointer-events: none;
+      opacity: .92;
+      transform: scale(1.04);
+    }
+    .dropzone .sticker {
+      min-width: 72px;
+      height: 38px;
+      padding: 4px 7px 4px 5px;
+      box-shadow: none;
+    }
+    .dropzone .sticker .ico {
+      width: 25px;
+      height: 25px;
+      font-size: 16px;
+    }
+    .dropzone .sticker .txt {
+      font-size: 13px;
+    }
+    .dropzone .sticker .num {
+      width: 22px;
+      height: 22px;
+      font-size: 12px;
+    }
+
+    .bottom-bar {
+      padding: 0 14px 14px;
+      display: grid;
+      grid-template-columns: minmax(220px, 360px) 1fr;
+      gap: 12px;
+    }
+    .fixed-bank, .review {
+      border: 2px solid var(--ink);
+      border-radius: 16px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .mini-head {
+      background: var(--navy);
+      color: #fff;
+      padding: 8px 12px;
+      font-weight: 950;
+    }
+    .fixed-chips {
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .fixed-chip {
+      border: 2px solid #dfbd32;
+      background: #fff6c7;
+      color: #594800;
+      border-radius: 999px;
+      padding: 7px 11px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .review-body {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 10px;
+    }
+    .review-body textarea {
+      min-height: 74px;
+      resize: none;
+      border: 2px dashed #bac5d3;
+      border-radius: 14px;
+      padding: 10px;
+      outline: 0;
+      color: var(--ink);
+      background: #fff;
+      font-weight: 800;
+    }
+
+    .library {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-height: 0;
+    }
+    .progress {
+      padding: 12px 14px;
+      border-bottom: 1px solid #edf0f5;
+      display: grid;
+      gap: 8px;
+    }
+    .progress-row {
+      display: grid;
+      grid-template-columns: 84px 1fr 54px;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .meter {
+      height: 12px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .meter div {
+      height: 100%;
+      background: linear-gradient(90deg, #8bd5a1, #ffd166);
+      width: 0;
+    }
+    .picker-help {
+      padding: 10px 14px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+      border-bottom: 1px solid #edf0f5;
+      background: #fbfcff;
+    }
+    .task-list {
+      overflow: auto;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      -webkit-overflow-scrolling: touch;
+    }
+    .task-card {
+      border: 2px solid var(--fg);
+      background: var(--bg);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .task-main {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+    }
+    .task-icon {
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--fg);
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.78);
+      color: var(--fg);
+    }
+    .task-icon svg { width: 28px; height: 28px; stroke-width: 2.2; }
+    .task-title {
+      font-size: 17px;
+      font-weight: 950;
+      line-height: 1.1;
+    }
+    .task-desc {
+      margin-top: 4px;
+      color: #657184;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .task-count {
+      min-width: 46px;
+      text-align: center;
+      font-size: 12px;
+      color: #657184;
+      font-weight: 900;
+    }
+    .task-count b {
+      display: block;
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1;
+    }
+    .ticket-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      padding: 0 10px 11px;
+    }
+    .ticket-row .sticker {
+      min-width: 72px;
+      height: 36px;
+      box-shadow: none;
+    }
+    .ticket-row .sticker.used {
+      opacity: .4;
+      text-decoration: line-through;
+    }
+
+    .lib-foot {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid #edf0f5;
+      background: #fbfcff;
+    }
+    .danger {
+      border-color: #b33c4a;
+      color: #912b36;
+      box-shadow: none;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 850;
+      opacity: 0;
+      pointer-events: none;
+      transition: .2s ease;
+      z-index: 3000;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 1050px) {
+      body { overflow: auto; }
+      .app { min-height: 100%; height: auto; }
+      .topbar {
+        position: sticky;
+        top: 0;
+        grid-template-columns: 1fr;
+      }
+      .actions { justify-content: flex-start; }
+      .workspace {
+        height: auto;
+        overflow: visible;
+        grid-template-columns: 1fr;
+      }
+      .board-wrap { max-height: 65vh; }
+      .library { max-height: 70vh; }
+      .bottom-bar { grid-template-columns: 1fr; }
+      .review-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title">
+        <h1>暑假周任务拖拽白板</h1>
+        <p>把任务图标拖进每天留白格；固定课先写好，一周完成总量即可。</p>
+      </div>
+      <div class="actions">
+        <div class="child-tabs" aria-label="孩子切换">
+          <button class="tab active" data-child="child1">孩子1</button>
+          <button class="tab" data-child="child2">孩子2</button>
+        </div>
+        <button class="tool-btn primary" id="saveBtn">保存</button>
+        <button class="tool-btn" id="exportBtn">导出JSON</button>
+        <button class="tool-btn danger" id="resetBtn">清空本周</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel board-panel">
+        <div class="panel-head">
+          <span>一周投放棋盘</span>
+          <small>手机上可先点格子，再点右侧任务票放入</small>
+        </div>
+        <div class="week-meta">
+          <input id="weekTitle" placeholder="第 ___ 周" />
+          <input id="weekRange" placeholder="日期：____/____ - ____/____" />
+          <span class="hint" id="selectedHint">未选择投放格</span>
+        </div>
+        <div class="quick-palette">
+          <div class="quick-palette-title">常用拖拽</div>
+          <div class="quick-palette-row" id="quickPalette"></div>
+        </div>
+        <div class="board-wrap">
+          <div class="board" id="board"></div>
+        </div>
+        <div class="bottom-bar">
+          <div class="fixed-bank">
+            <div class="mini-head">固定事项库</div>
+            <div class="fixed-chips" id="fixedChips"></div>
+          </div>
+          <div class="review">
+            <div class="mini-head">周末复盘</div>
+            <div class="review-body">
+              <textarea data-review="best" placeholder="我本周最满意的是："></textarea>
+              <textarea data-review="more" placeholder="下周想多安排："></textarea>
+              <textarea data-review="less" placeholder="下周想少安排："></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel library">
+        <div class="panel-head">
+          <span>任务图标库</span>
+          <small>拖动 / 点击投放</small>
+        </div>
+        <div class="progress" id="progress"></div>
+        <div class="picker-help">规则：任务票可重复拖入；每张编号票本周建议只用一次。放入后可点图标标记完成，长按/双击删除。</div>
+        <div class="task-list" id="taskList"></div>
+        <div class="lib-foot">
+          <button class="tool-btn" id="copyLinkBtn">复制当前状态</button>
+          <button class="tool-btn" id="importBtn">导入JSON</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+    const times = ["上午", "下午", "晚上"];
+    const icons = {
+      book: `<svg viewBox="0 0 24 24"><path d="M4 5.5c2.7-1 5.3-.9 8 .6v13c-2.7-1.5-5.3-1.6-8-.6z"/><path d="M12 6.1c2.7-1.5 5.3-1.6 8-.6v13c-2.7-1-5.3-.9-8 .6z"/><path d="M12 6v13"/></svg>`,
+      pencil: `<svg viewBox="0 0 24 24"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10z"/><path d="M13.5 7.5l3 3"/><path d="M5.5 16.5l2 2"/></svg>`,
+      ball: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4.5 9.5c4 1 7.8.2 11.4-2.6"/><path d="M8.1 19.1c.8-4.5 3.2-8.1 7.3-10.8"/><path d="M19.4 14.6c-3.8-1.3-7.7-.7-11.6 1.7"/></svg>`,
+      piano: `<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6 6v12M9 6v7M12 6v12M15 6v7M18 6v12"/></svg>`,
+      palette: `<svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 0 0 16h1.2a1.8 1.8 0 0 0 1.1-3.2 1.7 1.7 0 0 1 1-3h1.4A3.3 3.3 0 0 0 20 10.4C19.6 6.8 16.3 4 12 4z"/><circle cx="8.5" cy="10" r=".8"/><circle cx="11.2" cy="7.8" r=".8"/><circle cx="14.5" cy="9.1" r=".8"/></svg>`,
+      game: `<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="9" rx="4"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="15.5" cy="12" r=".7"/><circle cx="18" cy="14" r=".7"/></svg>`,
+      board: `<svg viewBox="0 0 24 24"><path d="M8 20h8"/><path d="M10 17h4"/><path d="M9 13h6"/><path d="M12 4c2.1 0 3.8 1.5 3.8 3.5S14.1 11 12 11 8.2 9.5 8.2 7.5 9.9 4 12 4z"/></svg>`,
+      mic: `<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="10" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M9 21h6"/></svg>`,
+      science: `<svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v5l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 17l-5-9V3"/><path d="M7 16h10"/></svg>`,
+      nature: `<svg viewBox="0 0 24 24"><path d="M5 19C14 18 19 12 20 4 12 5 6 10 5 19z"/><path d="M5 19c3-5 7-8 12-10"/></svg>`,
+      museum: `<svg viewBox="0 0 24 24"><path d="M3 9h18L12 4z"/><path d="M5 9v9M9 9v9M15 9v9M19 9v9"/><path d="M3.5 20.5h17"/></svg>`,
+      home: `<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10.5V20h12v-9.5"/><path d="M10 20v-6h4v6"/></svg>`,
+      chores: `<svg viewBox="0 0 24 24"><path d="M14 4L6 20"/><path d="M8 16l7 4 3-5-7-4z"/><path d="M9.5 18l6 3"/></svg>`,
+      chef: `<svg viewBox="0 0 24 24"><path d="M8 10a3 3 0 0 1 1-5.8 3.5 3.5 0 0 1 6 0A3 3 0 0 1 16 10"/><path d="M7 10h10v9H7z"/><path d="M10 14h4"/></svg>`,
+      sleep: `<svg viewBox="0 0 24 24"><path d="M4 14h16v5"/><path d="M4 19V8"/><path d="M4 13h6a3 3 0 0 0-3-3H4"/><path d="M14 6h5l-5 5h5"/></svg>`
+    };
+    const tasks = [
+      { id: "read", code: "书", name: "看书", desc: "20-30分钟", count: 5, bg: "#DDF4E4", fg: "#2F7D56", icon: "book", base: true },
+      { id: "homework", code: "作", name: "写作业", desc: "学习/练习", count: 5, bg: "#DCEBFF", fg: "#3867A6", icon: "pencil", base: true },
+      { id: "sport", code: "动", name: "运动", desc: "户外/球类", count: 4, bg: "#FFF0B8", fg: "#A06A00", icon: "ball", base: true },
+      { id: "piano", code: "琴", name: "练琴", desc: "钢琴/吉他", count: 4, bg: "#E9DFFF", fg: "#6F54A5", icon: "piano", base: true },
+      { id: "aiart", code: "画", name: "AI/电脑画画", desc: "创作屏幕", count: 3, bg: "#D9F3F0", fg: "#267C78", icon: "palette", base: true },
+      { id: "jiujitsu", code: "柔", name: "柔术课", desc: "固定课", count: 1, bg: "#EFE7DC", fg: "#735B42", icon: "ball" },
+      { id: "artclass", code: "美", name: "画画课", desc: "固定课", count: 1, bg: "#FFE0EC", fg: "#A33C62", icon: "palette" },
+      { id: "guitar", code: "吉", name: "吉他课", desc: "固定课", count: 1, bg: "#E7E2D2", fg: "#6E6240", icon: "piano" },
+      { id: "grandma", code: "婆", name: "阿婆家", desc: "家庭时间", count: 1, bg: "#FFE6C7", fg: "#9B5C1A", icon: "home" },
+      { id: "play", code: "玩", name: "PLAY", desc: "自由玩", count: 7, bg: "#EEF2F7", fg: "#596579", icon: "game" },
+      { id: "boardgame", code: "桌", name: "桌游", desc: "家庭游戏", count: 3, bg: "#FFE1C5", fg: "#A55222", icon: "board" },
+      { id: "stream", code: "播", name: "游戏直播", desc: "奖励屏幕", count: 1, bg: "#FFDCE7", fg: "#A6375A", icon: "mic" },
+      { id: "science", code: "科", name: "科学实验", desc: "小探索", count: 2, bg: "#DCEBFF", fg: "#285E9E", icon: "science" },
+      { id: "nature", code: "察", name: "自然观察", desc: "植物/昆虫", count: 2, bg: "#DEF5DF", fg: "#357B47", icon: "nature" },
+      { id: "museum", code: "馆", name: "博物馆/展览", desc: "外出学习", count: 1, bg: "#E7E0FF", fg: "#5C4B9B", icon: "museum" },
+      { id: "craft", code: "手", name: "手工制作", desc: "拼搭/创作", count: 2, bg: "#FFECCB", fg: "#9C6418", icon: "palette" },
+      { id: "chores", code: "家", name: "家务小帮手", desc: "整理/清洁", count: 3, bg: "#E5E7EB", fg: "#4B5563", icon: "chores" },
+      { id: "chef", code: "厨", name: "小厨师", desc: "做饭/烘焙", count: 2, bg: "#FFE2D6", fg: "#A14E31", icon: "chef" },
+      { id: "sleep", code: "睡", name: "早睡挑战", desc: "作息", count: 5, bg: "#E6F0FF", fg: "#445D8A", icon: "sleep" }
+    ];
+    const fixedPresets = ["周六下午：柔术课", "周六下午：画画课", "周五晚上：吉他课", "周六晚上：阿婆家"];
+    const storageKey = "summer-drag-board-v1";
+    let activeChild = "child1";
+    let selectedZone = null;
+    let drag = null;
+    let state = loadState();
+
+    function blankChild() {
+      const cells = {};
+      for (let d = 0; d < 7; d++) for (let t = 0; t < 3; t++) {
+        cells[`${d}-${t}`] = { fixed: "", free: "", items: [] };
+      }
+      return { weekTitle: "", weekRange: "", cells, review: { best: "", more: "", less: "" } };
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (saved && saved.children) return saved;
+      } catch {}
+      const s = { children: { child1: blankChild(), child2: blankChild() } };
+      s.children.child1.cells["5-1"].fixed = "柔术课 / 画画课";
+      s.children.child1.cells["4-2"].fixed = "吉他课";
+      s.children.child1.cells["5-2"].fixed = "阿婆家";
+      s.children.child2.cells["5-1"].fixed = "柔术课 / 画画课";
+      s.children.child2.cells["5-2"].fixed = "阿婆家";
+      return s;
+    }
+
+    function current() { return state.children[activeChild]; }
+    function saveState(quiet = false) {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      if (!quiet) toast("已保存到本机浏览器");
+    }
+
+    function taskById(id) { return tasks.find(t => t.id === id); }
+
+    function makeSticker(item, options = {}) {
+      const task = taskById(item.taskId);
+      const el = document.createElement("div");
+      el.className = "sticker";
+      if (item.done) el.classList.add("done");
+      if (options.used) el.classList.add("used");
+      el.style.setProperty("--bg", task.bg);
+      el.style.setProperty("--fg", task.fg);
+      el.dataset.taskId = task.id;
+      el.dataset.num = item.num;
+      if (item.instanceId) el.dataset.instanceId = item.instanceId;
+      el.innerHTML = `<span class="ico">${icons[task.icon] || task.code}</span><span class="txt">${task.name}</span><span class="num">${item.num}</span>`;
+      el.addEventListener("pointerdown", e => startDrag(e, item, options.source || "library"));
+      el.addEventListener("click", e => {
+        e.stopPropagation();
+        if (options.source === "library") {
+          if (selectedZone) addItemToZone(selectedZone, { taskId: task.id, num: item.num });
+          else toast("先点一个投放格，再点任务票");
+        } else {
+          toggleDone(item.instanceId);
+        }
+      });
+      el.addEventListener("dblclick", e => {
+        if (options.source !== "library") {
+          e.stopPropagation();
+          removeItem(item.instanceId);
+        }
+      });
+      let pressTimer = null;
+      el.addEventListener("pointerdown", () => {
+        if (options.source !== "library") {
+          pressTimer = setTimeout(() => removeItem(item.instanceId), 750);
+        }
+      });
+      el.addEventListener("pointerup", () => clearTimeout(pressTimer));
+      el.addEventListener("pointercancel", () => clearTimeout(pressTimer));
+      return el;
+    }
+
+    function renderBoard() {
+      const board = document.getElementById("board");
+      board.innerHTML = "";
+      const corner = document.createElement("div");
+      corner.className = "corner";
+      corner.textContent = "时间";
+      board.appendChild(corner);
+      days.forEach(day => {
+        const h = document.createElement("div");
+        h.className = "day-head";
+        h.textContent = day;
+        board.appendChild(h);
+      });
+      times.forEach((time, t) => {
+        const th = document.createElement("div");
+        th.className = "time-head";
+        th.textContent = time;
+        board.appendChild(th);
+        days.forEach((day, d) => {
+          const key = `${d}-${t}`;
+          const cellData = current().cells[key];
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.dataset.key = key;
+          const fixed = document.createElement("label");
+          fixed.className = "fixed-field";
+          fixed.innerHTML = `<span>固定：</span>`;
+          const fixedInput = document.createElement("input");
+          fixedInput.value = cellData.fixed || "";
+          fixedInput.placeholder = "可空";
+          fixedInput.addEventListener("input", () => { cellData.fixed = fixedInput.value; saveState(true); });
+          fixed.appendChild(fixedInput);
+          const label = document.createElement("div");
+          label.className = "drop-label";
+          label.textContent = "投放区";
+          const zone = document.createElement("div");
+          zone.className = "dropzone";
+          zone.dataset.key = key;
+          zone.addEventListener("click", () => selectZone(key));
+          zone.addEventListener("pointerup", e => finishDragOnZone(e, key));
+          zone.addEventListener("pointerenter", () => zone.classList.add("drag-over"));
+          zone.addEventListener("pointerleave", () => zone.classList.remove("drag-over"));
+          if (selectedZone === key) zone.classList.add("selected");
+          cellData.items.forEach(item => zone.appendChild(makeSticker(item, { source: "board" })));
+          const free = document.createElement("label");
+          free.className = "free-field";
+          free.innerHTML = `<span>自由：</span>`;
+          const freeInput = document.createElement("input");
+          freeInput.value = cellData.free || "";
+          freeInput.placeholder = "孩子自己分配";
+          freeInput.addEventListener("input", () => { cellData.free = freeInput.value; saveState(true); });
+          free.appendChild(freeInput);
+          cell.append(fixed, label, zone, free);
+          board.appendChild(cell);
+        });
+      });
+      document.getElementById("selectedHint").textContent = selectedZone ? `已选：${days[+selectedZone.split("-")[0]]} ${times[+selectedZone.split("-")[1]]}` : "未选择投放格";
+    }
+
+    function renderLibrary() {
+      const used = countUsed();
+      const list = document.getElementById("taskList");
+      list.innerHTML = "";
+      tasks.forEach(task => {
+        const card = document.createElement("section");
+        card.className = "task-card";
+        card.style.setProperty("--bg", task.bg);
+        card.style.setProperty("--fg", task.fg);
+        card.innerHTML = `
+          <div class="task-main">
+            <div class="task-icon">${icons[task.icon] || task.code}</div>
+            <div><div class="task-title">${task.name}</div><div class="task-desc">${task.desc}</div></div>
+            <div class="task-count"><b>${task.count}</b>次</div>
+          </div>
+          <div class="ticket-row"></div>`;
+        const row = card.querySelector(".ticket-row");
+        for (let i = 1; i <= task.count; i++) {
+          row.appendChild(makeSticker({ taskId: task.id, num: i }, { source: "library", used: used[`${task.id}-${i}`] }));
+        }
+        list.appendChild(card);
+      });
+    }
+
+    function renderQuickPalette() {
+      const quickIds = ["read", "homework", "sport", "piano", "aiart", "boardgame", "stream", "play"];
+      const used = countUsed();
+      const row = document.getElementById("quickPalette");
+      row.innerHTML = "";
+      quickIds.forEach(id => {
+        const task = taskById(id);
+        const next = Array.from({ length: task.count }, (_, i) => i + 1).find(n => !used[`${task.id}-${n}`]) || 1;
+        row.appendChild(makeSticker({ taskId: task.id, num: next }, { source: "library" }));
+      });
+    }
+
+    function renderProgress() {
+      const wrap = document.getElementById("progress");
+      const counts = countByTask();
+      const baseTasks = tasks.filter(t => t.base);
+      const flexTasks = tasks.filter(t => !t.base);
+      const baseDone = baseTasks.reduce((a, t) => a + Math.min(counts[t.id] || 0, t.count), 0);
+      const baseTotal = baseTasks.reduce((a, t) => a + t.count, 0);
+      const flexDone = flexTasks.reduce((a, t) => a + Math.min(counts[t.id] || 0, t.count), 0);
+      const flexTotal = flexTasks.reduce((a, t) => a + t.count, 0);
+      wrap.innerHTML = "";
+      [
+        ["基础任务", baseDone, baseTotal],
+        ["弹性/固定", flexDone, flexTotal],
+        ["总投放", baseDone + flexDone, baseTotal + flexTotal],
+      ].forEach(([label, done, total]) => {
+        const pct = total ? Math.min(100, Math.round(done / total * 100)) : 0;
+        const row = document.createElement("div");
+        row.className = "progress-row";
+        row.innerHTML = `<span>${label}</span><div class="meter"><div style="width:${pct}%"></div></div><span>${done}/${total}</span>`;
+        wrap.appendChild(row);
+      });
+    }
+
+    function renderFixedChips() {
+      const box = document.getElementById("fixedChips");
+      box.innerHTML = "";
+      fixedPresets.forEach(txt => {
+        const b = document.createElement("button");
+        b.className = "fixed-chip";
+        b.textContent = txt;
+        b.addEventListener("click", () => {
+          if (!selectedZone) return toast("先点一个格子，再点固定事项");
+          current().cells[selectedZone].fixed = txt.replace(/^周.?(上午|下午|晚上)：/, "");
+          renderAll();
+          saveState(true);
+        });
+        box.appendChild(b);
+      });
+    }
+
+    function renderMeta() {
+      document.getElementById("weekTitle").value = current().weekTitle || "";
+      document.getElementById("weekRange").value = current().weekRange || "";
+      document.querySelectorAll("[data-review]").forEach(el => {
+        el.value = current().review[el.dataset.review] || "";
+      });
+    }
+
+    function renderAll() {
+      renderMeta();
+      renderBoard();
+      renderQuickPalette();
+      renderLibrary();
+      renderProgress();
+      renderFixedChips();
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.child === activeChild));
+    }
+
+    function selectZone(key) {
+      selectedZone = key;
+      renderBoard();
+    }
+
+    function addItemToZone(key, sourceItem) {
+      const item = {
+        taskId: sourceItem.taskId,
+        num: Number(sourceItem.num),
+        done: false,
+        instanceId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      };
+      current().cells[key].items.push(item);
+      renderAll();
+      saveState(true);
+    }
+
+    function removeItem(instanceId) {
+      for (const cell of Object.values(current().cells)) {
+        const idx = cell.items.findIndex(i => i.instanceId === instanceId);
+        if (idx >= 0) {
+          cell.items.splice(idx, 1);
+          renderAll();
+          saveState(true);
+          toast("已删除任务票");
+          return;
+        }
+      }
+    }
+
+    function toggleDone(instanceId) {
+      for (const cell of Object.values(current().cells)) {
+        const item = cell.items.find(i => i.instanceId === instanceId);
+        if (item) {
+          item.done = !item.done;
+          renderAll();
+          saveState(true);
+          return;
+        }
+      }
+    }
+
+    function countUsed() {
+      const used = {};
+      for (const cell of Object.values(current().cells)) {
+        for (const item of cell.items) used[`${item.taskId}-${item.num}`] = true;
+      }
+      return used;
+    }
+
+    function countByTask() {
+      const counts = {};
+      for (const cell of Object.values(current().cells)) {
+        for (const item of cell.items) counts[item.taskId] = (counts[item.taskId] || 0) + 1;
+      }
+      return counts;
+    }
+
+    function startDrag(e, item, source) {
+      if (e.button !== undefined && e.button !== 0) return;
+      const target = e.currentTarget;
+      target.setPointerCapture?.(e.pointerId);
+      const rect = target.getBoundingClientRect();
+      const ghost = target.cloneNode(true);
+      ghost.classList.add("ghost");
+      document.body.appendChild(ghost);
+      drag = {
+        source,
+        item: { taskId: item.taskId, num: Number(item.num), instanceId: item.instanceId },
+        ghost,
+        offsetX: e.clientX - rect.left,
+        offsetY: e.clientY - rect.top,
+        moved: false
+      };
+      moveGhost(e.clientX, e.clientY);
+      window.addEventListener("pointermove", onDragMove, { passive: false });
+      window.addEventListener("pointerup", onDragEnd, { once: true });
+    }
+
+    function moveGhost(x, y) {
+      if (!drag) return;
+      drag.ghost.style.left = `${x - drag.offsetX}px`;
+      drag.ghost.style.top = `${y - drag.offsetY}px`;
+    }
+
+    function onDragMove(e) {
+      if (!drag) return;
+      e.preventDefault();
+      drag.moved = true;
+      moveGhost(e.clientX, e.clientY);
+      document.querySelectorAll(".dropzone.drag-over").forEach(z => z.classList.remove("drag-over"));
+      const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".dropzone");
+      zone?.classList.add("drag-over");
+    }
+
+    function onDragEnd(e) {
+      if (!drag) return;
+      const zone = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".dropzone");
+      if (zone && drag.moved) {
+        if (drag.source === "board" && drag.item.instanceId) removeItemSilently(drag.item.instanceId);
+        addItemToZone(zone.dataset.key, drag.item);
+      }
+      cleanupDrag();
+    }
+
+    function finishDragOnZone(e, key) {
+      if (!drag || !drag.moved) return;
+      if (drag.source === "board" && drag.item.instanceId) removeItemSilently(drag.item.instanceId);
+      addItemToZone(key, drag.item);
+      cleanupDrag();
+    }
+
+    function removeItemSilently(instanceId) {
+      for (const cell of Object.values(current().cells)) {
+        const idx = cell.items.findIndex(i => i.instanceId === instanceId);
+        if (idx >= 0) {
+          cell.items.splice(idx, 1);
+          return;
+        }
+      }
+    }
+
+    function cleanupDrag() {
+      document.querySelectorAll(".dropzone.drag-over").forEach(z => z.classList.remove("drag-over"));
+      window.removeEventListener("pointermove", onDragMove);
+      drag?.ghost?.remove();
+      drag = null;
+    }
+
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeChild = btn.dataset.child;
+        selectedZone = null;
+        renderAll();
+      });
+    });
+    document.getElementById("weekTitle").addEventListener("input", e => { current().weekTitle = e.target.value; saveState(true); });
+    document.getElementById("weekRange").addEventListener("input", e => { current().weekRange = e.target.value; saveState(true); });
+    document.querySelectorAll("[data-review]").forEach(el => {
+      el.addEventListener("input", e => { current().review[e.target.dataset.review] = e.target.value; saveState(true); });
+    });
+    document.getElementById("saveBtn").addEventListener("click", () => saveState(false));
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("确定清空当前孩子本周内容吗？")) return;
+      state.children[activeChild] = blankChild();
+      selectedZone = null;
+      renderAll();
+      saveState(false);
+    });
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "暑假周任务白板数据.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    document.getElementById("copyLinkBtn").addEventListener("click", async () => {
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
+      const url = `${location.origin}${location.pathname}#data=${data}`;
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      toast("已复制含当前状态的链接");
+    });
+    document.getElementById("importBtn").addEventListener("click", () => {
+      const text = prompt("粘贴导出的 JSON：");
+      if (!text) return;
+      try {
+        const imported = JSON.parse(text);
+        if (!imported.children) throw new Error("bad");
+        state = imported;
+        selectedZone = null;
+        renderAll();
+        saveState(false);
+      } catch {
+        toast("JSON 格式不对");
+      }
+    });
+
+    function hydrateFromHash() {
+      if (!location.hash.startsWith("#data=")) return;
+      try {
+        state = JSON.parse(decodeURIComponent(escape(atob(location.hash.slice(6)))));
+        saveState(true);
+        history.replaceState(null, "", location.pathname);
+      } catch {}
+    }
+
+    hydrateFromHash();
+    renderAll();
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>
